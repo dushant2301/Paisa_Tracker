@@ -1,0 +1,281 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================
+   BASE STYLES
+   =========================== */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-bright rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-purple;
+  }
+
+  /* Remove number input arrows */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-brand-purple text-white;
+  }
+}
+
+/* ===========================
+   COMPONENT STYLES
+   =========================== */
+@layer components {
+  /* Glass card effect */
+  .glass-card {
+    @apply bg-bg-card border border-border-subtle rounded-2xl;
+    background: rgba(19, 19, 26, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-card-elevated {
+    @apply bg-bg-elevated border border-border-default rounded-2xl;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* Gradient button */
+  .btn-gradient {
+    @apply relative overflow-hidden font-semibold rounded-xl px-6 py-3 text-white transition-all duration-300;
+    background: linear-gradient(135deg, #7C3AED 0%, #3B82F6 100%);
+  }
+  .btn-gradient::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, #9D5CF6 0%, #60A5FA 100%);
+  }
+  .btn-gradient:hover::before {
+    @apply opacity-100;
+  }
+  .btn-gradient:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+  }
+  .btn-gradient:active {
+    transform: translateY(0);
+  }
+
+  /* Stat card number */
+  .stat-number {
+    @apply text-3xl font-bold tabular-nums;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Input styles */
+  .input-dark {
+    @apply w-full bg-bg-elevated border border-border-default rounded-xl px-4 py-3 text-text-primary placeholder-text-disabled focus:outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all duration-200;
+  }
+
+  /* Badge */
+  .badge-pending {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-pending-yellow-bg text-pending-yellow border border-pending-yellow/20;
+  }
+  .badge-received {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-income-green-bg text-income-green border border-income-green/20;
+  }
+  .badge-expense {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-expense-red-bg text-expense-red border border-expense-red/20;
+  }
+
+  /* Shimmer skeleton */
+  .skeleton {
+    @apply rounded-xl bg-bg-elevated;
+    background: linear-gradient(90deg, #1C1C27 25%, #252535 50%, #1C1C27 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Nav item */
+  .nav-item {
+    @apply flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200 cursor-pointer;
+  }
+  .nav-item.active {
+    @apply text-brand-purple;
+  }
+  .nav-item:not(.active) {
+    @apply text-text-disabled hover:text-text-muted;
+  }
+
+  /* Category chip */
+  .category-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 cursor-pointer;
+  }
+  .category-chip.selected {
+    @apply bg-brand-purple/20 border-brand-purple text-brand-purple-light;
+  }
+  .category-chip:not(.selected) {
+    @apply bg-bg-elevated border-border-default text-text-muted hover:border-border-bright hover:text-text-secondary;
+  }
+
+  /* Transaction row */
+  .transaction-row {
+    @apply flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:bg-bg-elevated cursor-pointer;
+  }
+
+  /* Page container */
+  .page-container {
+    @apply max-w-lg mx-auto px-4 py-4 pb-24 md:pb-6;
+  }
+
+  /* Desktop layout */
+  .desktop-content {
+    @apply md:max-w-none md:w-full;
+  }
+
+  /* Divider */
+  .divider {
+    @apply border-t border-border-subtle my-4;
+  }
+
+  /* Floating label */
+  .floating-label {
+    @apply absolute left-4 top-3.5 text-text-disabled text-sm transition-all duration-200 pointer-events-none;
+  }
+}
+
+/* ===========================
+   UTILITY STYLES
+   =========================== */
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #7C3AED 0%, #3B82F6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-gradient {
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ===========================
+   RECHARTS OVERRIDES
+   =========================== */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background: #1C1C27 !important;
+  border: 1px solid #2D2D45 !important;
+  border-radius: 12px !important;
+  color: #F8FAFC !important;
+}
+
+.recharts-tooltip-label {
+  color: #94A3B8 !important;
+  font-size: 0.75rem !important;
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: #94A3B8 !important;
+  font-size: 11px !important;
+}
+
+.recharts-legend-item-text {
+  color: #94A3B8 !important;
+  font-size: 12px !important;
+}
+
+/* ===========================
+   TRANSITIONS
+   =========================== */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.page-exit {
+  opacity: 1;
+}
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ===========================
+   MOBILE BOTTOM NAV
+   =========================== */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 z-50;
+  background: rgba(19, 19, 26, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(45, 45, 69, 0.8);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ===========================
+   SIDEBAR DESKTOP
+   =========================== */
+.sidebar {
+  @apply fixed left-0 top-0 h-full w-64 z-40;
+  background: rgba(13, 13, 20, 0.97);
+  border-right: 1px solid rgba(30, 30, 46, 0.8);
+  backdrop-filter: blur(20px);
+}
