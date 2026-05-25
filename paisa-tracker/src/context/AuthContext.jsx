@@ -12,6 +12,7 @@ import {
   getUserProfile,
   updateUserProfile,
 } from '../services/firestoreService';
+import { testFirestoreWrite } from '../firebaseDebug';
 
 const AuthContext = createContext(null);
 
@@ -51,6 +52,11 @@ export const AuthProvider = ({ children }) => {
             createdAt: profile.createdAt,
           });
           setBalanceState(Number(profile.balance) || 0);
+
+          // Run Firestore connectivity test in dev mode
+          if (import.meta.env.DEV) {
+            testFirestoreWrite(firebaseUser.uid);
+          }
         } catch (err) {
           console.error('Error loading user profile:', err);
           // Still set basic user from Firebase Auth even if Firestore fails

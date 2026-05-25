@@ -129,22 +129,36 @@ const FriendsTracker = () => {
     if (!form.amount || Number(form.amount) <= 0) { toast.error('Enter valid amount'); return; }
     setLoading(true);
     try {
-      addFriendTransaction({ friendName: form.friendName.trim(), amount: Number(form.amount), description: form.description, date: form.date });
-      toast.success(`Added ₹${form.amount} for ${form.friendName}!`);
+      await addFriendTransaction({ friendName: form.friendName.trim(), amount: Number(form.amount), description: form.description, date: form.date });
+      toast.success(`Added ₹${form.amount} for ${form.friendName}! 💸`);
       setAddModal(false);
       setForm({ friendName: '', amount: '', description: '', date: getTodayString() });
+    } catch (err) {
+      console.error('[FriendsTracker] addFriendTransaction error:', err);
+      toast.error(err?.message || 'Failed to add transaction');
     } finally { setLoading(false); }
   };
 
-  const handleMarkReceived = (t) => {
-    markFriendReceived(t.id);
-    toast.success(`Received ${formatCurrency(t.amount)} from ${t.friendName}!`);
+  const handleMarkReceived = async (t) => {
+    try {
+      await markFriendReceived(t.id);
+      toast.success(`Received ${formatCurrency(t.amount)} from ${t.friendName}! ✅`);
+    } catch (err) {
+      console.error('[FriendsTracker] markFriendReceived error:', err);
+      toast.error(err?.message || 'Failed to update transaction');
+    }
   };
 
-  const handleDelete = (t) => {
-    deleteFriendTransaction(t.id);
-    toast.success('Transaction deleted');
-    setDeleteConfirm(null);
+  const handleDelete = async (t) => {
+    try {
+      await deleteFriendTransaction(t.id);
+      toast.success('Transaction deleted 🗑️');
+    } catch (err) {
+      console.error('[FriendsTracker] deleteFriendTransaction error:', err);
+      toast.error(err?.message || 'Failed to delete transaction');
+    } finally {
+      setDeleteConfirm(null);
+    }
   };
 
   return (

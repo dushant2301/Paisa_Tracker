@@ -34,22 +34,36 @@ const ShopTracker = () => {
     if (!form.itemDescription.trim()) { toast.error('Enter item description'); return; }
     setLoading(true);
     try {
-      addShopExpense({ amount: Number(form.amount), itemDescription: form.itemDescription, date: form.date });
-      toast.success('Shop expense added!');
+      await addShopExpense({ amount: Number(form.amount), itemDescription: form.itemDescription, date: form.date });
+      toast.success('Shop expense added! 🏪');
       setAddModal(false);
       setForm({ amount: '', itemDescription: '', date: getTodayString() });
+    } catch (err) {
+      console.error('[ShopTracker] addShopExpense error:', err);
+      toast.error(err?.message || 'Failed to add expense');
     } finally { setLoading(false); }
   };
 
-  const handleMarkReceived = (item) => {
-    markShopReceived(item.id);
-    toast.success(`₹${item.amount} marked as received from shop!`);
+  const handleMarkReceived = async (item) => {
+    try {
+      await markShopReceived(item.id);
+      toast.success(`₹${item.amount} marked as received! ✅`);
+    } catch (err) {
+      console.error('[ShopTracker] markShopReceived error:', err);
+      toast.error(err?.message || 'Failed to update entry');
+    }
   };
 
-  const handleDelete = (item) => {
-    deleteShopExpense(item.id);
-    toast.success('Entry deleted');
-    setDeleteConfirm(null);
+  const handleDelete = async (item) => {
+    try {
+      await deleteShopExpense(item.id);
+      toast.success('Entry deleted 🗑️');
+    } catch (err) {
+      console.error('[ShopTracker] deleteShopExpense error:', err);
+      toast.error(err?.message || 'Failed to delete entry');
+    } finally {
+      setDeleteConfirm(null);
+    }
   };
 
   return (

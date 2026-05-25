@@ -37,10 +37,16 @@ const Expenses = () => {
   const grouped = groupByDate(filtered, 'date');
   const totalFiltered = filtered.reduce((sum, e) => sum + Number(e.amount), 0);
 
-  const handleDelete = (expense) => {
-    deleteExpense(expense.id);
-    toast.success('Expense deleted');
-    setDeleteConfirm(null);
+  const handleDelete = async (expense) => {
+    try {
+      await deleteExpense(expense.id);
+      toast.success('Expense deleted 🗑️');
+    } catch (err) {
+      console.error('[Expenses] deleteExpense error:', err);
+      toast.error(err?.message || 'Failed to delete expense');
+    } finally {
+      setDeleteConfirm(null);
+    }
   };
 
   return (

@@ -15,11 +15,24 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+// ── Startup config check ─────────────────────────────────────────────────────
+// Verify all required env vars are present
+const requiredVars = ['apiKey', 'authDomain', 'projectId', 'appId'];
+const missingVars = requiredVars.filter((key) => !firebaseConfig[key]);
+if (missingVars.length > 0) {
+  console.error('[Firebase] ❌ Missing config values:', missingVars);
+  console.error('[Firebase] Check that .env file exists with VITE_FIREBASE_* variables');
+} else {
+  console.log('[Firebase] ✅ Config loaded for project:', firebaseConfig.projectId);
+}
+
 // Initialize Firebase app
 const app = initializeApp(firebaseConfig);
 
 // Initialize and export Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+console.log('[Firebase] ✅ Auth and Firestore initialized');
 
 export default app;
