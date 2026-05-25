@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, ListOrdered, Store, Users, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, ListOrdered, Store, Users, BarChart3, FileText } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/shop', icon: Store, label: 'Shop' },
   { to: '/friends', icon: Users, label: 'Friends' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { to: '/reports', icon: FileText, label: 'Reports' },
 ];
 
 const BottomNav = () => {

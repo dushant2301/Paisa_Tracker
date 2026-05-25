@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, ListOrdered, Store, Users, BarChart3, LogOut, Wallet } from 'lucide-react';
+import { LayoutDashboard, ListOrdered, Store, Users, BarChart3, LogOut, Wallet, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/shop', icon: Store, label: 'Shop Tracker' },
   { to: '/friends', icon: Users, label: 'Friends' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { to: '/reports', icon: FileText, label: 'Reports' },
 ];
 
 const Sidebar = () => {

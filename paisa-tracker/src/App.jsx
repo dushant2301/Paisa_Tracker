@@ -11,6 +11,7 @@ import Expenses from './pages/Expenses/Expenses';
 import ShopTracker from './pages/Shop/ShopTracker';
 import FriendsTracker from './pages/Friends/FriendsTracker';
 import Analytics from './pages/Analytics/Analytics';
+import MonthlyReports from './pages/Reports/MonthlyReports';
 
 // Protected route
 const ProtectedRoute = ({ children }) => {
@@ -73,6 +74,10 @@ const AppRoutes = () => (
     <Route
       path="/analytics"
       element={<ProtectedRoute><Analytics /></ProtectedRoute>}
+    />
+    <Route
+      path="/reports"
+      element={<ProtectedRoute><MonthlyReports /></ProtectedRoute>}
     />
     <Route path="*" element={<Navigate to="/dashboard" replace />} />
   </Routes>
