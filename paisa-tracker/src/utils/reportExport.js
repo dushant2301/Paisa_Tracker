@@ -4,7 +4,7 @@
  */
 
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas/dist/html2canvas.esm.js';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 
