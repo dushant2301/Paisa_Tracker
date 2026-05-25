@@ -1,0 +1,13 @@
+# from the workspace root
+cd paisa-tracker
+npm install
+npm run dev
+# open http://localhost:5173/ in your browser
+
+
+
+cd paisa-tracker
+npm install
+npm run build
+npm run preview
+# preview usually serves at http://localhost:5173/http
