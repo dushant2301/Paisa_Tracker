@@ -12,6 +12,7 @@ import ShopTracker from './pages/Shop/ShopTracker';
 import FriendsTracker from './pages/Friends/FriendsTracker';
 import Analytics from './pages/Analytics/Analytics';
 import MonthlyReports from './pages/Reports/MonthlyReports';
+import FirebaseStatusPage from './pages/Debug/FirebaseStatusPage';
 
 // Protected route
 const ProtectedRoute = ({ children }) => {
@@ -79,6 +80,7 @@ const AppRoutes = () => (
       path="/reports"
       element={<ProtectedRoute><MonthlyReports /></ProtectedRoute>}
     />
+    <Route path="/firebase-status" element={<FirebaseStatusPage />} />
     <Route path="*" element={<Navigate to="/dashboard" replace />} />
   </Routes>
 );
