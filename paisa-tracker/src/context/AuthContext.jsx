@@ -1,92 +1,167 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getUser, setUser, removeUser, getBalance, setBalance } from '../utils/storage';
+import {
+  signUpWithEmail,
+  signInWithEmail,
+  signInWithGoogle,
+  signOutUser,
+  onAuthChange,
+  getAuthErrorMessage,
+} from '../services/authService';
+import {
+  createUserProfile,
+  getUserProfile,
+  updateUserProfile,
+} from '../services/firestoreService';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUserState] = useState(null);
+  const [user, setUser] = useState(null);         // Firebase Auth user + profile merged
   const [balance, setBalanceState] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);   // true until onAuthStateChanged fires
 
+  // ── Listen to Firebase auth state (persists across page refreshes) ──────────
   useEffect(() => {
-    // Load persisted session
-    const savedUser = getUser();
-    const savedBalance = getBalance();
-    if (savedUser) {
-      setUserState(savedUser);
-      setBalanceState(savedBalance);
-    }
-    setLoading(false);
+    const unsubscribe = onAuthChange(async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in — load their Firestore profile
+        try {
+          let profile = await getUserProfile(firebaseUser.uid);
+
+          // First login via Google might not have a profile yet — create one
+          if (!profile) {
+            const newProfile = {
+              name: firebaseUser.displayName || 'User',
+              email: firebaseUser.email,
+              avatar: (firebaseUser.displayName || 'U')[0].toUpperCase(),
+              balance: 0,
+              provider: firebaseUser.providerData[0]?.providerId || 'email',
+            };
+            await createUserProfile(firebaseUser.uid, newProfile);
+            profile = { id: firebaseUser.uid, ...newProfile };
+          }
+
+          setUser({
+            uid: firebaseUser.uid,
+            id: firebaseUser.uid,
+            name: profile.name || firebaseUser.displayName || 'User',
+            email: profile.email || firebaseUser.email,
+            avatar: profile.avatar || (profile.name || 'U')[0].toUpperCase(),
+            provider: profile.provider || 'email',
+            createdAt: profile.createdAt,
+          });
+          setBalanceState(Number(profile.balance) || 0);
+        } catch (err) {
+          console.error('Error loading user profile:', err);
+          // Still set basic user from Firebase Auth even if Firestore fails
+          setUser({
+            uid: firebaseUser.uid,
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'User',
+            email: firebaseUser.email,
+            avatar: (firebaseUser.displayName || 'U')[0].toUpperCase(),
+          });
+        }
+      } else {
+        // Signed out
+        setUser(null);
+        setBalanceState(0);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const login = useCallback(async ({ email, password }) => {
-    const savedUser = getUser();
-    if (!savedUser) throw new Error('No account found. Please sign up first.');
-    if (savedUser.email !== email) throw new Error('Invalid email or password.');
-    if (savedUser.password !== password) throw new Error('Invalid email or password.');
-    setUserState(savedUser);
-    setBalanceState(getBalance());
-    return savedUser;
-  }, []);
-
+  // ── Signup with email/password ───────────────────────────────────────────────
   const signup = useCallback(async ({ name, email, password, initialBalance }) => {
-    const existing = getUser();
-    if (existing && existing.email === email) throw new Error('Account already exists with this email.');
-    const newUser = {
-      id: `user_${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      avatar: name.trim()[0].toUpperCase(),
-      createdAt: new Date().toISOString(),
-    };
-    setUser(newUser);
-    setBalance(Number(initialBalance) || 0);
-    setUserState(newUser);
-    setBalanceState(Number(initialBalance) || 0);
-    return newUser;
-  }, []);
+    try {
+      const credential = await signUpWithEmail(email, password, name.trim());
+      const uid = credential.user.uid;
 
-  const googleSignIn = useCallback(async (name) => {
-    if (!name || !name.trim()) throw new Error('Name is required');
-    // Simulate Google sign-in with a local profile
-    const savedUser = getUser();
-    if (savedUser) {
-      setUserState(savedUser);
-      setBalanceState(getBalance());
-      return savedUser;
+      // Create Firestore profile
+      const profile = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        avatar: name.trim()[0].toUpperCase(),
+        balance: Number(initialBalance) || 0,
+        provider: 'email',
+      };
+      await createUserProfile(uid, profile);
+
+      // onAuthChange will fire and set user state automatically
+      return credential.user;
+    } catch (err) {
+      throw new Error(getAuthErrorMessage(err));
     }
-    const newUser = {
-      id: `user_google_${Date.now()}`,
-      name,
-      email: `${name.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-      password: null,
-      avatar: name[0].toUpperCase(),
-      provider: 'google',
-      createdAt: new Date().toISOString(),
-    };
-    setUser(newUser);
-    setBalance(0);
-    setUserState(newUser);
-    setBalanceState(0);
-    return newUser;
   }, []);
 
-  const logout = useCallback(() => {
-    removeUser();
-    setUserState(null);
-    setBalanceState(0);
+  // ── Login with email/password ────────────────────────────────────────────────
+  const login = useCallback(async ({ email, password }) => {
+    try {
+      const credential = await signInWithEmail(email, password);
+      // onAuthChange will fire and load profile automatically
+      return credential.user;
+    } catch (err) {
+      throw new Error(getAuthErrorMessage(err));
+    }
   }, []);
 
-  const updateBalance = useCallback((amount) => {
-    setBalance(amount);
-    setBalanceState(amount);
+  // ── Google Sign-In ────────────────────────────────────────────────────────────
+  const googleSignIn = useCallback(async () => {
+    try {
+      const credential = await signInWithGoogle();
+      const firebaseUser = credential.user;
+
+      // Check if profile exists; if not, create one
+      const existing = await getUserProfile(firebaseUser.uid);
+      if (!existing) {
+        await createUserProfile(firebaseUser.uid, {
+          name: firebaseUser.displayName || 'User',
+          email: firebaseUser.email,
+          avatar: (firebaseUser.displayName || 'U')[0].toUpperCase(),
+          balance: 0,
+          provider: 'google',
+        });
+      }
+
+      // onAuthChange will fire and set user state automatically
+      return firebaseUser;
+    } catch (err) {
+      throw new Error(getAuthErrorMessage(err));
+    }
   }, []);
 
-  const updateUser = useCallback((updates) => {
-    const updated = { ...user, ...updates };
-    setUser(updated);
-    setUserState(updated);
+  // ── Logout ────────────────────────────────────────────────────────────────────
+  const logout = useCallback(async () => {
+    try {
+      await signOutUser();
+      // onAuthChange will fire and clear user state automatically
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  }, []);
+
+  // ── Update balance (saves to Firestore) ──────────────────────────────────────
+  const updateBalance = useCallback(async (amount) => {
+    if (!user?.uid) return;
+    try {
+      await updateUserProfile(user.uid, { balance: Number(amount) });
+      setBalanceState(Number(amount));
+    } catch (err) {
+      console.error('Error updating balance:', err);
+    }
+  }, [user]);
+
+  // ── Update user profile info ──────────────────────────────────────────────────
+  const updateUser = useCallback(async (updates) => {
+    if (!user?.uid) return;
+    try {
+      await updateUserProfile(user.uid, updates);
+      setUser((prev) => ({ ...prev, ...updates }));
+    } catch (err) {
+      console.error('Error updating user:', err);
+    }
   }, [user]);
 
   return (

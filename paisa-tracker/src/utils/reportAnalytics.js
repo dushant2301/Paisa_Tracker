@@ -192,15 +192,16 @@ export const computePendingAnalysis = (shopExpenses, friendTxs) => {
   // Friend-wise breakdown
   const friendMap = {};
   friendTxs.forEach((f) => {
-    if (!friendMap[f.name]) {
-      friendMap[f.name] = { name: f.name, pending: 0, received: 0, txs: [] };
+    const key = f.friendName || f.name || 'Unknown';
+    if (!friendMap[key]) {
+      friendMap[key] = { name: key, pending: 0, received: 0, txs: [] };
     }
     if (f.status === 'pending') {
-      friendMap[f.name].pending += Number(f.amount);
+      friendMap[key].pending += Number(f.amount);
     } else {
-      friendMap[f.name].received += Number(f.amount);
+      friendMap[key].received += Number(f.amount);
     }
-    friendMap[f.name].txs.push(f);
+    friendMap[key].txs.push(f);
   });
 
   const friendBreakdown = Object.values(friendMap).sort((a, b) => b.pending - a.pending);

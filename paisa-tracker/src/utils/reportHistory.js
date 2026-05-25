@@ -1,52 +1,53 @@
 /**
  * reportHistory.js
- * CRUD functions for report history stored in localStorage.
+ * Async Firestore-backed report history functions.
+ * These functions require a userId (uid) — call them from authenticated contexts.
+ *
+ * These are wrapper helpers used by MonthlyReports.jsx and ReportHistory.jsx.
+ * The actual Firestore operations are in services/firestoreService.js.
  */
 
-const HISTORY_KEY = 'paisa_report_history';
+import {
+  saveReportHistory as fsSaveReportHistory,
+  getReportHistory as fsGetReportHistory,
+  subscribeToReportHistory as fsSubscribeToReportHistory,
+  deleteReportHistory as fsDeleteReportHistory,
+} from '../services/firestoreService';
 
-const get = () => {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+/**
+ * Save a report to history in Firestore.
+ * @param {string} uid - Firebase user UID
+ * @param {object} meta - { yearMonth, monthLabel, summary: { totalSpent, txCount } }
+ * @returns {Promise<string>} Document ID
+ */
+export const saveReportToHistory = async (uid, meta) => {
+  return await fsSaveReportHistory(uid, meta);
 };
 
-const set = (data) => {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(data));
-  } catch {
-    console.error('Failed to save report history');
-  }
+/**
+ * Fetch all report history entries once.
+ * @param {string} uid - Firebase user UID
+ * @returns {Promise<Array>} Sorted array of report history entries
+ */
+export const getReportHistory = async (uid) => {
+  return await fsGetReportHistory(uid);
 };
 
-export const getReportHistory = () => {
-  return get().sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt));
+/**
+ * Subscribe to report history in real-time.
+ * @param {string} uid
+ * @param {function} callback
+ * @returns {function} Unsubscribe function
+ */
+export const subscribeToReportHistory = (uid, callback) => {
+  return fsSubscribeToReportHistory(uid, callback);
 };
 
-export const saveReportToHistory = (meta) => {
-  const history = get();
-  // Avoid duplicate for same month — update if exists
-  const existingIdx = history.findIndex((h) => h.yearMonth === meta.yearMonth);
-  const entry = {
-    id: `report_${meta.yearMonth}_${Date.now()}`,
-    ...meta,
-    generatedAt: new Date().toISOString(),
-  };
-  if (existingIdx >= 0) {
-    history[existingIdx] = entry;
-  } else {
-    history.unshift(entry);
-  }
-  set(history);
-  return entry;
+/**
+ * Delete a report history entry.
+ * @param {string} uid
+ * @param {string} id - Report document ID
+ */
+export const deleteReportFromHistory = async (uid, id) => {
+  return await fsDeleteReportHistory(uid, id);
 };
-
-export const deleteReportFromHistory = (id) => {
-  const history = get().filter((h) => h.id !== id);
-  set(history);
-};
-
-export const clearReportHistory = () => set([]);

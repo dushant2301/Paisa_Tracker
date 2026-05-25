@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── User profiles & all subcollections ──────────────────────────────────
+    // Each user can only read/write their own document and subcollections.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Validate user profile writes
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAny(['name', 'email', 'balance', 'avatar', 'provider', 'createdAt', 'updatedAt']);
+
+      // ── Expenses ──────────────────────────────────────────────────────────
+      match /expenses/{expenseId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        // Validate expense data
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0
+          && request.resource.data.category is string;
+
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && (!('amount' in request.resource.data) || (request.resource.data.amount is number && request.resource.data.amount > 0));
+      }
+
+      // ── Shop Expenses ──────────────────────────────────────────────────────
+      match /shopExpenses/{shopId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0
+          && request.resource.data.keys().hasAll(['amount', 'itemDescription', 'status']);
+
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.status in ['pending', 'received'];
+      }
+
+      // ── Friend Transactions ────────────────────────────────────────────────
+      match /friendTransactions/{txId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0
+          && request.resource.data.keys().hasAll(['amount', 'friendName', 'status']);
+
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.status in ['pending', 'received'];
+      }
+
+      // ── Report History ────────────────────────────────────────────────────
+      match /reportHistory/{reportId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasAll(['yearMonth', 'monthLabel']);
+      }
+    }
+
+    // ── Deny ALL other documents ────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

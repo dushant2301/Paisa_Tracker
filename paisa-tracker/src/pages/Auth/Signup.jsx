@@ -22,8 +22,13 @@ const Signup = () => {
 
   const handleNext = (e) => {
     e.preventDefault();
-    if (!form.name || !form.email) {
+    if (!form.name.trim() || !form.email) {
       toast.error('Please fill all fields');
+      return;
+    }
+    // Basic email format check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
     setStep(2);
@@ -42,8 +47,8 @@ const Signup = () => {
     setLoading(true);
     try {
       await signup({
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         password: form.password,
         initialBalance: Number(form.initialBalance) || 0,
       });
@@ -51,6 +56,7 @@ const Signup = () => {
       navigate('/dashboard');
     } catch (err) {
       toast.error(err.message || 'Signup failed');
+      // If it's a password/account issue, go back to step 2
     } finally {
       setLoading(false);
     }
@@ -125,11 +131,19 @@ const Signup = () => {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="input-dark pl-10"
+                  autoComplete="email"
                 />
               </div>
               <Button type="submit" variant="primary" size="lg" fullWidth>
                 Continue →
               </Button>
+
+              <p className="text-center text-text-muted text-sm">
+                Already have an account?{' '}
+                <Link to="/login" className="text-brand-purple-light font-medium hover:underline">
+                  Sign in
+                </Link>
+              </p>
             </motion.form>
           ) : (
             <motion.form
@@ -147,6 +161,7 @@ const Signup = () => {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="input-dark pl-10 pr-10"
+                  autoComplete="new-password"
                 />
                 <button type="button" onClick={() => setShowPass((p) => !p)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-disabled hover:text-text-muted">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -160,6 +175,7 @@ const Signup = () => {
                   value={form.confirmPassword}
                   onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                   className="input-dark pl-10"
+                  autoComplete="new-password"
                 />
               </div>
               <div className="relative">
@@ -170,6 +186,7 @@ const Signup = () => {
                   value={form.initialBalance}
                   onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
                   className="input-dark pl-10"
+                  min="0"
                 />
               </div>
               <div className="flex gap-3">
@@ -182,13 +199,6 @@ const Signup = () => {
               </div>
             </motion.form>
           )}
-
-          <p className="text-center text-text-muted text-sm mt-4">
-            Already have an account?{' '}
-            <Link to="/login" className="text-brand-purple-light font-medium hover:underline">
-              Sign in
-            </Link>
-          </p>
         </div>
       </motion.div>
     </div>

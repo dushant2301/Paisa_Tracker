@@ -2,27 +2,55 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../../utils/formatCurrency';
-import { getReportHistory, deleteReportFromHistory } from '../../../utils/reportHistory';
-import { FileText, Download, Trash2, Clock, ChevronRight } from 'lucide-react';
+import { subscribeToReportHistory, deleteReportFromHistory } from '../../../utils/reportHistory';
+import { useAuth } from '../../../context/AuthContext';
+import { FileText, Download, Trash2, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const ReportHistory = ({ onRedownload, refreshTrigger }) => {
+  const { user } = useAuth();
   const [history, setHistory] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Real-time subscription to Firestore report history
   useEffect(() => {
-    setHistory(getReportHistory());
-  }, [refreshTrigger]);
+    if (!user?.uid) {
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
 
-  const handleDelete = (id) => {
+    const unsubscribe = subscribeToReportHistory(user.uid, (data) => {
+      setHistory(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, refreshTrigger]);
+
+  const handleDelete = async (id) => {
+    if (!user?.uid) return;
     setDeletingId(id);
-    setTimeout(() => {
-      deleteReportFromHistory(id);
-      setHistory(getReportHistory());
-      setDeletingId(null);
+    try {
+      await deleteReportFromHistory(user.uid, id);
       toast.success('Report removed from history');
-    }, 300);
+    } catch (err) {
+      console.error('Error deleting report:', err);
+      toast.error('Failed to delete report');
+    } finally {
+      setDeletingId(null);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="glass-card mt-4 p-6 flex items-center justify-center gap-2">
+        <div className="w-4 h-4 rounded-full border-2 border-brand-purple border-t-transparent animate-spin" />
+        <p className="text-text-muted text-sm">Loading history...</p>
+      </div>
+    );
+  }
 
   if (history.length === 0) {
     return (
@@ -109,7 +137,8 @@ const ReportHistory = ({ onRedownload, refreshTrigger }) => {
                   <button
                     id={`delete-report-${report.id}`}
                     onClick={() => handleDelete(report.id)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-text-disabled hover:text-expense-red hover:bg-expense-red-bg transition-all duration-200"
+                    disabled={deletingId === report.id}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-text-disabled hover:text-expense-red hover:bg-expense-red-bg transition-all duration-200 disabled:opacity-40"
                   >
                     <Trash2 size={13} />
                   </button>

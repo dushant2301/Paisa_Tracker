@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { getLastNMonths } from '../../utils/formatDate';
 import {
   getMonthExpenses,
@@ -58,6 +59,7 @@ const LoadingOverlay = () => (
 );
 
 const MonthlyReports = () => {
+  const { user } = useAuth();
   const { expenses, shopExpenses, friendTransactions } = useApp();
   const months = getLastNMonths(6);
   const [selectedMonth, setSelectedMonth] = useState(months[0].value);
@@ -137,12 +139,18 @@ const MonthlyReports = () => {
     setReportGenerated(true);
     setIsGenerating(false);
 
-    // Save to history
-    saveReportToHistory({
-      yearMonth: selectedMonth,
-      monthLabel: selectedMonthLabel,
-      summary: { totalSpent: summary.totalSpent, txCount: summary.txCount },
-    });
+    // Save to history (async Firestore write)
+    if (user?.uid) {
+      try {
+        await saveReportToHistory(user.uid, {
+          yearMonth: selectedMonth,
+          monthLabel: selectedMonthLabel,
+          summary: { totalSpent: summary.totalSpent, txCount: summary.txCount },
+        });
+      } catch (err) {
+        console.error('Error saving report history:', err);
+      }
+    }
     setHistoryRefresh((n) => n + 1);
 
     toast.success(`${selectedMonthLabel} report generated!`);
@@ -202,21 +210,32 @@ const MonthlyReports = () => {
   }, [selectedMonth]);
 
   // ── Demo Data ────────────────────────────────────────────────────────────
-  const handleInjectDemo = useCallback(() => {
-    injectDemoData();
-    setDemoActive(true);
-    toast.success('Demo data loaded! Click "Generate Report" to see the report.', { duration: 4000 });
-    // Force a page reload to refresh the AppContext with new localStorage data
-    setTimeout(() => window.location.reload(), 500);
-  }, []);
+  const handleInjectDemo = useCallback(async () => {
+    if (!user?.uid) { toast.error('Please log in first'); return; }
+    try {
+      toast.loading('Loading demo data...', { id: 'demo' });
+      await injectDemoData(user.uid);
+      setDemoActive(true);
+      toast.success('Demo data loaded! Click "Generate Report" to see the report.', { id: 'demo', duration: 4000 });
+    } catch (err) {
+      console.error('Demo inject error:', err);
+      toast.error('Failed to load demo data', { id: 'demo' });
+    }
+  }, [user]);
 
-  const handleClearDemo = useCallback(() => {
-    clearDemoData();
-    setDemoActive(false);
-    setReportGenerated(false);
-    toast('Demo data cleared', { icon: '🗑️' });
-    setTimeout(() => window.location.reload(), 300);
-  }, []);
+  const handleClearDemo = useCallback(async () => {
+    if (!user?.uid) return;
+    try {
+      toast.loading('Clearing demo data...', { id: 'demo-clear' });
+      await clearDemoData(user.uid, expenses, shopExpenses, friendTransactions);
+      setDemoActive(false);
+      setReportGenerated(false);
+      toast.success('Demo data cleared', { id: 'demo-clear', icon: '🗑️' });
+    } catch (err) {
+      console.error('Demo clear error:', err);
+      toast.error('Failed to clear demo data', { id: 'demo-clear' });
+    }
+  }, [user, expenses, shopExpenses, friendTransactions]);
 
   // When month changes, reset generated state
   const handleMonthChange = (val) => {

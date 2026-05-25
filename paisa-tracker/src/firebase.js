@@ -1,21 +1,25 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// Firebase SDK imports
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Firebase configuration — loaded from environment variables
+// Never hardcode credentials in source code
 const firebaseConfig = {
-  apiKey: "AIzaSyDMW10X0qnVfFcUMN0FryZhKLAAbqGdQIA",
-  authDomain: "paisa-tracker-e23e3.firebaseapp.com",
-  projectId: "paisa-tracker-e23e3",
-  storageBucket: "paisa-tracker-e23e3.firebasestorage.app",
-  messagingSenderId: "356898187675",
-  appId: "1:356898187675:web:1383f711bfe20e364dd93e",
-  measurementId: "G-10Q2L542KV"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
+// Initialize Firebase app
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Initialize and export Firebase services
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+export default app;
