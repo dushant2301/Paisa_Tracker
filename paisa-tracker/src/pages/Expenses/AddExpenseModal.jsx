@@ -28,14 +28,17 @@ const AddExpenseModal = ({ isOpen, onClose, editItem = null }) => {
     setLoading(true);
     try {
       if (editItem) {
-        updateExpense(editItem.id, { ...form, amount: Number(form.amount) });
+        await updateExpense(editItem.id, { ...form, amount: Number(form.amount) });
         toast.success('Expense updated! ✏️');
       } else {
-        addExpense({ ...form, amount: Number(form.amount) });
+        await addExpense({ ...form, amount: Number(form.amount) });
         toast.success('Expense added! 💸');
       }
       onClose();
       setForm({ amount: '', category: 'food', note: '', date: getTodayString() });
+    } catch (err) {
+      console.error('[AddExpenseModal] Error:', err);
+      toast.error(err?.message || 'Failed to save expense. Check your connection.');
     } finally {
       setLoading(false);
     }
