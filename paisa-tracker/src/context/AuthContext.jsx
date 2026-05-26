@@ -1,172 +1,175 @@
+// AuthContext.jsx — Firebase Auth + Firestore for user profile & balance
+// Uses signInWithRedirect for Google (more reliable than popup on deployed sites)
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
-  signUpWithEmail,
-  signInWithEmail,
-  signInWithGoogle,
-  signOutUser,
-  onAuthChange,
-  getAuthErrorMessage,
-} from '../services/authService';
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
 import {
-  createUserProfile,
-  getUserProfile,
-  updateUserProfile,
-} from '../services/firestoreService';
-import { testFirestoreWrite } from '../firebaseDebug';
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { auth, db, googleProvider } from '../firebase/firebase';
 
 const AuthContext = createContext(null);
 
+// ─── Firestore helpers ────────────────────────────────────────────────────────
+const getUserDoc   = (uid) => doc(db, 'users', uid, 'profile', 'data');
+
+const readProfile  = async (uid) => {
+  const snap = await getDoc(getUserDoc(uid));
+  return snap.exists() ? snap.data() : null;
+};
+
+const writeProfile = async (uid, data) => {
+  await setDoc(getUserDoc(uid), data, { merge: true });
+};
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);         // Firebase Auth user + profile merged
-  const [balance, setBalanceState] = useState(0);
-  const [loading, setLoading] = useState(true);   // true until onAuthStateChanged fires
+  const [user,    setUser]    = useState(null);
+  const [balance, setBalance] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
 
-  // ── Listen to Firebase auth state (persists across page refreshes) ──────────
+  // ── Handle Firebase user → load profile ──────────────────────────────────
+  const hydrateUser = async (firebaseUser) => {
+    try {
+      const profile = await readProfile(firebaseUser.uid);
+      const name    = profile?.name || firebaseUser.displayName || 'User';
+      setUser({
+        uid:    firebaseUser.uid,
+        name,
+        email:  firebaseUser.email,
+        avatar: name[0]?.toUpperCase() || 'U',
+      });
+      setBalance(profile?.balance ?? 0);
+    } catch (err) {
+      console.error('Error reading profile:', err);
+      const name = firebaseUser.displayName || 'User';
+      setUser({ uid: firebaseUser.uid, name, email: firebaseUser.email, avatar: name[0]?.toUpperCase() || 'U' });
+    }
+  };
+
+  // ── Listen to auth state + catch redirect result on page load ─────────────
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (firebaseUser) => {
-      if (firebaseUser) {
-        // User is signed in — load their Firestore profile
-        try {
-          let profile = await getUserProfile(firebaseUser.uid);
-
-          // First login via Google might not have a profile yet — create one
+    // Check if user just came back from Google redirect
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          // New Google sign-in — create profile if needed
+          const profile = await readProfile(result.user.uid);
           if (!profile) {
-            const newProfile = {
-              name: firebaseUser.displayName || 'User',
-              email: firebaseUser.email,
-              avatar: (firebaseUser.displayName || 'U')[0].toUpperCase(),
-              balance: 0,
-              provider: firebaseUser.providerData[0]?.providerId || 'email',
-            };
-            await createUserProfile(firebaseUser.uid, newProfile);
-            profile = { id: firebaseUser.uid, ...newProfile };
+            await writeProfile(result.user.uid, {
+              name:      result.user.displayName || 'User',
+              email:     result.user.email,
+              balance:   0,
+              createdAt: serverTimestamp(),
+            });
           }
-
-          setUser({
-            uid: firebaseUser.uid,
-            id: firebaseUser.uid,
-            name: profile.name || firebaseUser.displayName || 'User',
-            email: profile.email || firebaseUser.email,
-            avatar: profile.avatar || (profile.name || 'U')[0].toUpperCase(),
-            provider: profile.provider || 'email',
-            createdAt: profile.createdAt,
-          });
-          setBalanceState(Number(profile.balance) || 0);
-
-          // Run Firestore connectivity test in dev mode
-          if (import.meta.env.DEV) {
-            testFirestoreWrite(firebaseUser.uid);
-          }
-        } catch (err) {
-          console.error('Error loading user profile:', err);
-          // Still set basic user from Firebase Auth even if Firestore fails
-          setUser({
-            uid: firebaseUser.uid,
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'User',
-            email: firebaseUser.email,
-            avatar: (firebaseUser.displayName || 'U')[0].toUpperCase(),
-          });
         }
+      })
+      .catch((err) => {
+        if (err.code !== 'auth/popup-closed-by-user') {
+          console.error('Redirect result error:', err);
+          setError(firebaseErrorMessage(err.code));
+        }
+      });
+
+    // Standard auth state listener
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        await hydrateUser(firebaseUser);
       } else {
-        // Signed out
         setUser(null);
-        setBalanceState(0);
+        setBalance(0);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return unsub;
   }, []);
 
-  // ── Signup with email/password ───────────────────────────────────────────────
-  const signup = useCallback(async ({ name, email, password, initialBalance }) => {
-    try {
-      const credential = await signUpWithEmail(email, password, name.trim());
-      const uid = credential.user.uid;
-
-      // Create Firestore profile
-      const profile = {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        avatar: name.trim()[0].toUpperCase(),
-        balance: Number(initialBalance) || 0,
-        provider: 'email',
-      };
-      await createUserProfile(uid, profile);
-
-      // onAuthChange will fire and set user state automatically
-      return credential.user;
-    } catch (err) {
-      throw new Error(getAuthErrorMessage(err));
-    }
-  }, []);
-
-  // ── Login with email/password ────────────────────────────────────────────────
+  // ── Email/Password Login ──────────────────────────────────────────────────
   const login = useCallback(async ({ email, password }) => {
+    setError(null);
     try {
-      const credential = await signInWithEmail(email, password);
-      // onAuthChange will fire and load profile automatically
-      return credential.user;
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err) {
-      throw new Error(getAuthErrorMessage(err));
+      const msg = firebaseErrorMessage(err.code);
+      setError(msg);
+      throw new Error(msg);
     }
   }, []);
 
-  // ── Google Sign-In ────────────────────────────────────────────────────────────
+  // ── Email/Password Signup ─────────────────────────────────────────────────
+  const signup = useCallback(async ({ name, email, password, initialBalance }) => {
+    setError(null);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await updateProfile(cred.user, { displayName: name.trim() });
+      await writeProfile(cred.user.uid, {
+        name:      name.trim(),
+        email:     email.trim().toLowerCase(),
+        balance:   Number(initialBalance) || 0,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      const msg = firebaseErrorMessage(err.code);
+      setError(msg);
+      throw new Error(msg);
+    }
+  }, []);
+
+  // ── Google Sign-In (redirect — works on all browsers & deployed sites) ────
   const googleSignIn = useCallback(async () => {
+    setError(null);
     try {
-      const credential = await signInWithGoogle();
-      const firebaseUser = credential.user;
-
-      // Check if profile exists; if not, create one
-      const existing = await getUserProfile(firebaseUser.uid);
-      if (!existing) {
-        await createUserProfile(firebaseUser.uid, {
-          name: firebaseUser.displayName || 'User',
-          email: firebaseUser.email,
-          avatar: (firebaseUser.displayName || 'U')[0].toUpperCase(),
-          balance: 0,
-          provider: 'google',
-        });
-      }
-
-      // onAuthChange will fire and set user state automatically
-      return firebaseUser;
+      // This redirects the page to Google, then back to your app
+      await signInWithRedirect(auth, googleProvider);
+      // Code after this line won't run — page redirects
     } catch (err) {
-      throw new Error(getAuthErrorMessage(err));
+      const msg = firebaseErrorMessage(err.code);
+      setError(msg);
+      throw new Error(msg);
     }
   }, []);
 
-  // ── Logout ────────────────────────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
-    try {
-      await signOutUser();
-      // onAuthChange will fire and clear user state automatically
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+    await signOut(auth);
+    setUser(null);
+    setBalance(0);
   }, []);
 
-  // ── Update balance (saves to Firestore) ──────────────────────────────────────
+  // ── Update Balance ────────────────────────────────────────────────────────
   const updateBalance = useCallback(async (amount) => {
     if (!user?.uid) return;
+    setBalance(amount);
     try {
-      await updateUserProfile(user.uid, { balance: Number(amount) });
-      setBalanceState(Number(amount));
+      await updateDoc(getUserDoc(user.uid), { balance: amount });
     } catch (err) {
-      console.error('Error updating balance:', err);
+      console.error('Failed to save balance:', err);
     }
   }, [user]);
 
-  // ── Update user profile info ──────────────────────────────────────────────────
+  // ── Update User Profile ───────────────────────────────────────────────────
   const updateUser = useCallback(async (updates) => {
     if (!user?.uid) return;
+    const updated = { ...user, ...updates };
+    setUser(updated);
     try {
-      await updateUserProfile(user.uid, updates);
-      setUser((prev) => ({ ...prev, ...updates }));
+      await updateDoc(getUserDoc(user.uid), updates);
     } catch (err) {
-      console.error('Error updating user:', err);
+      console.error('Failed to update profile:', err);
     }
   }, [user]);
 
@@ -176,6 +179,7 @@ export const AuthProvider = ({ children }) => {
         user,
         balance,
         loading,
+        error,
         login,
         signup,
         googleSignIn,
@@ -195,3 +199,20 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 };
+
+// ─── Firebase error → friendly messages ──────────────────────────────────────
+function firebaseErrorMessage(code) {
+  const map = {
+    'auth/invalid-credential':        'Invalid email or password.',
+    'auth/user-not-found':            'No account found with this email.',
+    'auth/wrong-password':            'Incorrect password.',
+    'auth/email-already-in-use':      'An account already exists with this email.',
+    'auth/weak-password':             'Password must be at least 6 characters.',
+    'auth/invalid-email':             'Please enter a valid email address.',
+    'auth/too-many-requests':         'Too many attempts. Please try again later.',
+    'auth/network-request-failed':    'Network error. Check your internet connection.',
+    'auth/unauthorized-domain':       'This domain is not authorized. Add it in Firebase Console → Auth → Authorized Domains.',
+    'auth/popup-blocked':             'Popup was blocked. Please allow popups for this site.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
